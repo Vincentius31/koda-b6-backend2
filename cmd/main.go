@@ -17,6 +17,10 @@ func main() {
 	users := r.Group("/users")
 	{
 		users.GET("", userHandler.GetAll)
+		users.GET("/:email", userHandler.GetByEmail)
+		users.POST("", userHandler.Create)
+		users.PUT("/:email", userHandler.Update)
+		users.DELETE("/:email", userHandler.Delete)
 	}
 
 	r.Run("localhost:8888")
