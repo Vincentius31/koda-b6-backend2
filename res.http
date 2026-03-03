@@ -32,3 +32,40 @@ Content-Type: application/json
 
 DELETE /users/user@example.com HTTP/1.1
 Host: localhost:8888
+
+###
+
+POST /products HTTP/1.1
+Host: localhost:8888
+Content-Type: application/json
+
+{
+    "name": "Ice Lemon Tea",
+    "price": 120000
+}
+
+###
+
+GET /products HTTP/1.1
+Host: localhost:8888
+
+###
+
+PUT /products/1 HTTP/1.1
+Host: localhost:8888
+Content-Type: application/json
+
+{
+    "name": "Caramel Macchiato",
+    "price": 175000
+}
+
+###
+
+DELETE /products/1 HTTP/1.1
+Host: localhost:8888
+
+###
+
+GET /products/1 HTTP/1.1
+Host: localhost:8888
