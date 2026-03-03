@@ -1,0 +1,34 @@
+GET /users HTTP/1.1
+Host: localhost:8888
+
+###
+
+POST /users HTTP/1.1
+Host: localhost:8888
+Content-Type: application/json
+
+{
+    "email": "koda@example.com",
+    "password": "rahasia123"
+}
+
+###
+
+GET /users/koda@example.com HTTP/1.1
+Host: localhost:8888
+
+###
+
+PUT /users/user@example.com HTTP/1.1
+Host: localhost:8888
+Content-Type: application/json
+
+{
+    "email": "user@example.com",
+    "password": "passwordBaru456"
+}
+
+###
+
+DELETE /users/user@example.com HTTP/1.1
+Host: localhost:8888
