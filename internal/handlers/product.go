@@ -21,92 +21,114 @@ func NewProductHandler(service *service.ProductService) *ProductHandler {
 
 func (h *ProductHandler) GetAll(ctx *gin.Context) {
 	products := h.service.GetAll(ctx.Request.Context())
-	ctx.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"results": products,
+	ctx.JSON(http.StatusOK, models.WebResponse{
+		Status:  true,
+		Message: "Successfully retrieved all products",
+		Data:    products,
 	})
 }
 
 func (h *ProductHandler) GetByID(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Invalid ID format"})
+		ctx.JSON(http.StatusBadRequest, models.WebResponse{
+			Status:  false,
+			Message: "Invalid ID format",
+		})
 		return
 	}
 
 	product := h.service.GetByID(ctx.Request.Context(), id)
 	if product == nil {
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"message": "Product not found",
+		ctx.JSON(http.StatusNotFound, models.WebResponse{
+			Status:  false,
+			Message: "Product not found",
 		})
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"result":  product,
+	ctx.JSON(http.StatusOK, models.WebResponse{
+		Status:  true,
+		Message: "Successfully retrieved product",
+		Data:    product,
 	})
 }
 
 func (h *ProductHandler) Create(ctx *gin.Context) {
 	var req models.CreateProductRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+		ctx.JSON(http.StatusBadRequest, models.WebResponse{
+			Status:  false,
+			Message: err.Error(),
 		})
 		return
 	}
 
 	err := h.service.Create(ctx.Request.Context(), req)
 	if err != nil {
-		ctx.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to create product"})
+		ctx.JSON(http.StatusInternalServerError, models.WebResponse{
+			Status:  false,
+			Message: "Failed to create product",
+		})
 		return
 	}
 
-	ctx.JSON(http.StatusCreated, gin.H{
-		"message": "Product created",
+	ctx.JSON(http.StatusCreated, models.WebResponse{
+		Status:  true,
+		Message: "Product created successfully",
 	})
 }
 
 func (h *ProductHandler) Update(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Invalid ID format"})
+		ctx.JSON(http.StatusBadRequest, models.WebResponse{
+			Status:  false,
+			Message: "Invalid ID format",
+		})
 		return
 	}
 
 	var req models.UpdateProductRequest
 	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
+		ctx.JSON(http.StatusBadRequest, models.WebResponse{
+			Status:  false,
+			Message: err.Error(),
 		})
 		return
 	}
 
 	if !h.service.Update(ctx.Request.Context(), id, req) {
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"message": "Failed to update or product not found",
+		ctx.JSON(http.StatusNotFound, models.WebResponse{
+			Status:  false,
+			Message: "Failed to update or product not found",
 		})
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "Product updated",
+	ctx.JSON(http.StatusOK, models.WebResponse{
+		Status:  true,
+		Message: "Product updated successfully",
 	})
 }
 
 func (h *ProductHandler) Delete(ctx *gin.Context) {
 	id, err := strconv.Atoi(ctx.Param("id"))
 	if err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{"message": "Invalid ID format"})
+		ctx.JSON(http.StatusBadRequest, models.WebResponse{
+			Status:  false,
+			Message: "Invalid ID format",
+		})
 		return
 	}
 
 	if !h.service.Delete(ctx.Request.Context(), id) {
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"message": "Failed to delete or product not found",
+		ctx.JSON(http.StatusNotFound, models.WebResponse{
+			Status:  false,
+			Message: "Failed to delete or product not found",
 		})
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "Product deleted",
+	ctx.JSON(http.StatusOK, models.WebResponse{
+		Status:  true,
+		Message: "Product deleted successfully",
 	})
 }
