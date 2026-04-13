@@ -1,60 +1,83 @@
 package service
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"koda-b6-backend2/internal/models"
 	"koda-b6-backend2/internal/repository"
+	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
-type ProductService struct{
-	repo *repository.ProductRepository
+type ProductService struct {
+	repo  *repository.ProductRepository
+	cache *redis.Client
 }
 
-func NewProductService(repo *repository.ProductRepository)*ProductService{
+func NewProductService(repo *repository.ProductRepository, cache *redis.Client) *ProductService {
 	return &ProductService{
-		repo: repo,
+		repo:  repo,
+		cache: cache,
 	}
 }
 
-func (s *ProductService) GetAll() []models.Product {
-	return *s.repo.GetAll()
+func (s *ProductService) GetAll(ctx context.Context) []models.Product {
+	products, _ := s.repo.GetAll(ctx)
+	return products
 }
 
-func (s *ProductService) GetByID(id int) *models.Product {
-	product, _ := s.repo.GetById(id)
+func (s *ProductService) GetByID(ctx context.Context, id int) *models.Product {
+	cacheKey := fmt.Sprintf("product:%d", id)
+
+	val, err := s.cache.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var product models.Product
+		json.Unmarshal([]byte(val), &product)
+		return &product
+	}
+
+	product, err := s.repo.GetById(ctx, id)
+	if err != nil || product == nil {
+		return nil
+	}
+
+	productJSON, _ := json.Marshal(product)
+	s.cache.Set(ctx, cacheKey, productJSON, 15*time.Minute)
+
 	return product
 }
 
-func (s *ProductService) Create(req models.CreateProductRequest) {
-	products := *s.repo.GetAll()
-	newID := 1
-	if len(products) > 0 {
-		newID = products[len(products)-1].Id + 1
-	}
-
+func (s *ProductService) Create(ctx context.Context, req models.CreateProductRequest) error {
 	newProduct := models.Product{
-		Id:    newID,
 		Name:  req.Name,
 		Price: req.Price,
 	}
-	s.repo.Create(newProduct)
+	return s.repo.Create(ctx, newProduct)
 }
 
-func (s *ProductService) Update(id int, req models.UpdateProductRequest) bool {
-	product, index := s.repo.GetById(id)
-	if product == nil {
+func (s *ProductService) Update(ctx context.Context, id int, req models.UpdateProductRequest) bool {
+	product := models.Product{
+		Name:  req.Name,
+		Price: req.Price,
+	}
+
+	err := s.repo.Update(ctx, id, product)
+	if err != nil {
 		return false
 	}
-	product.Name = req.Name
-	product.Price = req.Price
-	s.repo.Update(index, *product)
+
+	s.cache.Del(ctx, fmt.Sprintf("product:%d", id))
 	return true
 }
 
-func (s *ProductService) Delete(id int) bool {
-	_, index := s.repo.GetById(id)
-	if index == -1 {
+func (s *ProductService) Delete(ctx context.Context, id int) bool {
+	err := s.repo.Delete(ctx, id)
+	if err != nil {
 		return false
 	}
-	s.repo.Delete(index)
+
+	s.cache.Del(ctx, fmt.Sprintf("product:%d", id))
 	return true
 }

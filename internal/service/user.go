@@ -1,58 +1,79 @@
 package service
 
 import (
+	"context"
+	"encoding/json"
+	"fmt"
 	"koda-b6-backend2/internal/models"
 	"koda-b6-backend2/internal/repository"
+	"time"
+
+	"github.com/redis/go-redis/v9"
 )
 
 type UserService struct {
-	repo *repository.UserRepository
+	repo  *repository.UserRepository
+	cache *redis.Client
 }
 
-func NewUserService(repo *repository.UserRepository) *UserService {
+func NewUserService(repo *repository.UserRepository, cache *redis.Client) *UserService {
 	return &UserService{
-		repo: repo,
+		repo:  repo,
+		cache: cache,
 	}
 }
 
-// Get all User
-func (s *UserService) GetAll() []models.User {
-	return *s.repo.GetAll()
+func (s *UserService) GetAll(ctx context.Context) []models.User {
+	users, _ := s.repo.GetAll(ctx)
+	return users
 }
 
-// Get User by Email
-func (s *UserService) GetByEmail(email string) *models.User{
-	user, _ := s.repo.GetByEmail(email)
+func (s *UserService) GetByEmail(ctx context.Context, email string) *models.User {
+	cacheKey := fmt.Sprintf("user:%s", email)
+
+	val, err := s.cache.Get(ctx, cacheKey).Result()
+	if err == nil {
+		var user models.User
+		json.Unmarshal([]byte(val), &user)
+		return &user
+	}
+
+	user, err := s.repo.GetByEmail(ctx, email)
+	if err != nil || user == nil {
+		return nil
+	}
+
+	userJSON, _ := json.Marshal(user)
+	s.cache.Set(ctx, cacheKey, userJSON, 1*time.Hour)
+
 	return user
 }
 
-// Create User
-func (s *UserService) Create(req models.CreateUserRequest){
+func (s *UserService) Create(ctx context.Context, req models.CreateUserRequest) error {
 	newUser := models.User{
-		Email: req.Email,
+		Email:    req.Email,
 		Password: req.Password,
 	}
-	s.repo.Create(newUser)
+	return s.repo.Create(ctx, newUser)
 }
 
-// Update User
-func (s *UserService) Update(email string, req models.UpdateUserRequest)bool{
-	user, index := s.repo.GetByEmail(email)
-	if user == nil {
+func (s *UserService) Update(ctx context.Context, email string, req models.UpdateUserRequest) bool {
+	user := models.User{Password: req.Password}
+	err := s.repo.Update(ctx, email, user)
+	if err != nil {
 		return false
 	}
 
-	user.Password = req.Password
-	s.repo.Update(index, *user)
+	s.cache.Del(ctx, fmt.Sprintf("user:%s", email))
 	return true
 }
 
-// Delete User
-func (s *UserService) Delete(email string)bool{
-	_, index := s.repo.GetByEmail(email)
-	if index == -1 {
+func (s *UserService) Delete(ctx context.Context, email string) bool {
+	err := s.repo.Delete(ctx, email)
+	if err != nil {
 		return false
 	}
-	s.repo.Delete(index)
+	
+	s.cache.Del(ctx, fmt.Sprintf("user:%s", email))
 	return true
 }
