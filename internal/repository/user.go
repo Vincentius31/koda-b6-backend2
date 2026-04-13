@@ -1,45 +1,60 @@
 package repository
 
-import "koda-b6-backend2/internal/models"
+import (
+	"context"
+	"koda-b6-backend2/internal/models"
 
-var DataUser []models.User
+	"github.com/jackc/pgx/v5/pgxpool"
+)
 
 type UserRepository struct {
-	db *[]models.User
+	db *pgxpool.Pool
 }
 
-func NewUserRepository(db *[]models.User) *UserRepository{
+func NewUserRepository(db *pgxpool.Pool) *UserRepository {
 	return &UserRepository{
-		db: &DataUser,
+		db: db,
 	}
 }
 
-//Get all user
-func (r *UserRepository) GetAll() *[]models.User {
-	return r.db
-}
+func (r *UserRepository) GetAll(ctx context.Context) ([]models.User, error) {
+	rows, err := r.db.Query(ctx, "SELECT email, password FROM users")
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
 
-//Create a user
-func (r *UserRepository) Create(user models.User) {
-	*r.db = append(*r.db, user)
-}
-
-//Get User by Email
-func (r *UserRepository) GetByEmail(email string) (*models.User, int){
-	for i, u := range *r.db {
-		if u.Email == email {
-			return &(*r.db)[i], i
+	var users []models.User
+	for rows.Next() {
+		var u models.User
+		if err := rows.Scan(&u.Email, &u.Password); err != nil {
+			return nil, err
 		}
+		users = append(users, u)
 	}
-	return nil, -1
+	return users, nil
 }
 
-//Update User
-func (r *UserRepository) Update(index int, updatedUser models.User){
-	(*r.db)[index] = updatedUser
+func (r *UserRepository) GetByEmail(ctx context.Context, email string) (*models.User, error) {
+	var user models.User
+	err := r.db.QueryRow(ctx, "SELECT email, password FROM users WHERE email = $1", email).Scan(&user.Email, &user.Password)
+	if err != nil {
+		return nil, err
+	}
+	return &user, nil
 }
 
-//Delete User
-func (r *UserRepository) Delete(index int){
-	*r.db = append((*r.db)[:index], (*r.db)[index+1:]...)
+func (r *UserRepository) Create(ctx context.Context, user models.User) error {
+	_, err := r.db.Exec(ctx, "INSERT INTO users (email, password) VALUES ($1, $2)", user.Email, user.Password)
+	return err
+}
+
+func (r *UserRepository) Update(ctx context.Context, email string, updatedUser models.User) error {
+	_, err := r.db.Exec(ctx, "UPDATE users SET password = $1 WHERE email = $2", updatedUser.Password, email)
+	return err
+}
+
+func (r *UserRepository) Delete(ctx context.Context, email string) error {
+	_, err := r.db.Exec(ctx, "DELETE FROM users WHERE email = $1", email)
+	return err
 }
