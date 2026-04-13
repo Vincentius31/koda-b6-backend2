@@ -8,89 +8,73 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
-type UserHandler struct{
+type UserHandler struct {
 	service *service.UserService
 }
 
-func NewUserHandler (service *service.UserService) *UserHandler{
+func NewUserHandler(service *service.UserService) *UserHandler {
 	return &UserHandler{
 		service: service,
 	}
 }
 
-func (h *UserHandler) GetAll(ctx *gin.Context){
-	ctx.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "List all users",
-		"results": h.service.GetAll(),
-	})
+func (h *UserHandler) GetAll(c *gin.Context) {
+	// Menggunakan c.Request.Context() agar context turun ke service -> repo -> database
+	users := h.service.GetAll(c.Request.Context())
+	c.JSON(http.StatusOK, gin.H{"data": users})
 }
 
-func (h *UserHandler) GetByEmail(ctx *gin.Context) {
-	email := ctx.Param("email")
-	user := h.service.GetByEmail(email)
-
+func (h *UserHandler) GetByEmail(c *gin.Context) {
+	email := c.Param("email")
+	user := h.service.GetByEmail(c.Request.Context(), email)
+	
 	if user == nil {
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"success": false,
-			"message": "User not found",
-		})
+		c.JSON(http.StatusNotFound, gin.H{"message": "User not found"})
 		return
 	}
-
-	ctx.JSON(http.StatusOK, gin.H{
-		"success": true,
-		"message": "User found",
-		"results": user,
-	})
+	c.JSON(http.StatusOK, gin.H{"data": user})
 }
 
-func (h *UserHandler) Create(ctx *gin.Context){
+func (h *UserHandler) Create(c *gin.Context) {
 	var req models.CreateUserRequest
-
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	h.service.Create(req)
-	ctx.JSON(http.StatusCreated, gin.H{
-		"message": "User Created successfully",
-	})
+	err := h.service.Create(c.Request.Context(), req)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to create user"})
+		return
+	}
+
+	c.JSON(http.StatusCreated, gin.H{"message": "User created successfully"})
 }
 
-func (h *UserHandler) Update(ctx *gin.Context){
-	email := ctx.Param("email")
+func (h *UserHandler) Update(c *gin.Context) {
+	email := c.Param("email")
 	var req models.UpdateUserRequest
-	if err := ctx.ShouldBindJSON(&req); err != nil {
-		ctx.JSON(http.StatusBadRequest, gin.H{
-			"error": err.Error(),
-		})
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{"error": err.Error()})
 		return
 	}
 
-	if success := h.service.Update(email, req); !success{
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"message": "User not found",
-		})
+	success := h.service.Update(c.Request.Context(), email, req)
+	if !success {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to update user"})
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "User updated successfully",
-	})
+
+	c.JSON(http.StatusOK, gin.H{"message": "User updated successfully"})
 }
 
-func (h *UserHandler) Delete(ctx *gin.Context){
-	email := ctx.Param("email")
-	if success := h.service.Delete(email); !success {
-		ctx.JSON(http.StatusNotFound, gin.H{
-			"message": "User not found",
-		})
+func (h *UserHandler) Delete(c *gin.Context) {
+	email := c.Param("email")
+	success := h.service.Delete(c.Request.Context(), email)
+	if !success {
+		c.JSON(http.StatusInternalServerError, gin.H{"message": "Failed to delete user"})
 		return
 	}
-	ctx.JSON(http.StatusOK, gin.H{
-		"message": "User deleted successfully",
-	})
+
+	c.JSON(http.StatusOK, gin.H{"message": "User deleted successfully"})
 }
