@@ -1,4 +1,4 @@
-# Koda B6 Backend Service
+# User & Product Backend Service
 
 A high-performance, production-ready RESTful API backend service built with Go. This project implements a clean architecture pattern with a robust dependency injection container, utilizing PostgreSQL for persistent storage and Redis for high-speed data caching.
 
